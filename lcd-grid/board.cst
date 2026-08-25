@@ -1,0 +1,18 @@
+// Tang Nano 9K — 1.14" ST7789V3 SPI LCD (Sipeed 8P connector).
+// Pin map from official example:
+//   https://github.com/sipeed/TangNano-9K-example/blob/main/spi_lcd/src/lcd114_test.cst
+// clk 27 MHz pin 52. LED2 pin 11 (active-low). No pin 10 (DONE).
+IO_LOC  "clk" 52;
+IO_PORT "clk" IO_TYPE=LVCMOS33;
+IO_LOC  "lcd_data" 77;
+IO_PORT "lcd_data" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC  "lcd_rs" 49;
+IO_PORT "lcd_rs" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC  "lcd_cs" 48;
+IO_PORT "lcd_cs" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC  "lcd_clk" 76;
+IO_PORT "lcd_clk" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC  "lcd_resetn" 47;
+IO_PORT "lcd_resetn" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8;
+IO_LOC  "led" 11;
+IO_PORT "led" IO_TYPE=LVCMOS33;

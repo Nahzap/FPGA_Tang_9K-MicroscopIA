@@ -1,0 +1,28 @@
+# Local ignores — toolchain, notes, build junk
+
+# Planning markdown (local only; never publish)
+Docs/
+docs/
+
+# OSS CAD Suite and vendor blobs
+oss-cad-suite/
+oss-cad-suite-build-main/
+oss-cad-suite-*.tgz
+oss-cad-suite-*.zip
+zadig*.exe
+
+# Synthesis / sim intermediates
+*.json
+*.vvp
+*.vcd
+*.lxt
+*.lxt2
+*.fst
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+.cursor/
+*.swp
+*~
