@@ -1,5 +1,5 @@
 // AD7606 + LCD + 2× DRV8871. top solo cablea. orch manda.
-// map X, map Y y format_scan arrancan juntos. El PWM no espera a la LCD.
+// enc_pos en sample_done. pwr_lim entre map_pot y pwm_drv.
 module top (
     input  wire clk,
     input  wire btn0_n,
@@ -48,39 +48,46 @@ module top (
     wire [10:0] x_cmp, y_cmp;
     wire [6:0]  x_pct, y_pct;
     wire [3:0]  x_hun, x_ten, x_one, y_hun, y_ten, y_one;
+    wire        x_fwd_l, x_rev_l, y_fwd_l, y_rev_l;
+    wire [10:0] x_cmp_l, y_cmp_l;
+
+    wire        ex_moved, ey_moved;
+    wire        ex_lp, ex_ln, ey_lp, ey_ln;
+    wire        ex_neg, ey_neg;
+    wire [6:0]  ex_pct, ey_pct;
+    wire [3:0]  ex_hun, ex_ten, ex_one, ey_hun, ey_ten, ey_one;
+
     wire [10:0] pwm_cnt;
     wire        pwm_en;
     wire        adc_go, map_go, fmt_go, snap_pwm, snap_lcd;
     wire        maps_idle;
 
     reg  [15:0] pix_q;
-    reg  [15:0] s0, s1, s2, s3, s4, s5, s6, s7;
-    reg  [16:0] d0, d1, d2, d3, d4, d5, d6, d7;
+    reg  [16:0] d0, d1, d2, d3;
     reg  [2:0]  sstatus;
     reg  [15:0] sconv;
     reg         svalid;
     reg         sbusy;
     reg         sdout;
-    reg         sx_fwd, sx_rev, sy_fwd, sy_rev;
+    reg         sx_neg, sy_neg;
     reg  [3:0]  sx_hun, sx_ten, sx_one, sy_hun, sy_ten, sy_one;
+    reg         sx_moved, sy_moved, sx_lock, sy_lock;
     reg         lx_fwd, lx_rev, ly_fwd, ly_rev;
     reg  [10:0] lx_cmp, ly_cmp;
 
     initial begin
         pix_q   = 16'd0;
-        s0 = 16'd0; s1 = 16'd0; s2 = 16'd0; s3 = 16'd0;
-        s4 = 16'd0; s5 = 16'd0; s6 = 16'd0; s7 = 16'd0;
         d0 = 17'd0; d1 = 17'd0; d2 = 17'd0; d3 = 17'd0;
-        d4 = 17'd0; d5 = 17'd0; d6 = 17'd0; d7 = 17'd0;
         sstatus = 3'd1;
         sconv   = 16'd0;
         svalid  = 1'b0;
         sbusy   = 1'b0;
         sdout   = 1'b1;
-        sx_fwd = 1'b0; sx_rev = 1'b0;
-        sy_fwd = 1'b0; sy_rev = 1'b0;
+        sx_neg = 1'b0; sy_neg = 1'b0;
         sx_hun = 4'd0; sx_ten = 4'd0; sx_one = 4'd0;
         sy_hun = 4'd0; sy_ten = 4'd0; sy_one = 4'd0;
+        sx_moved = 1'b0; sy_moved = 1'b0;
+        sx_lock = 1'b0; sy_lock = 1'b0;
         lx_fwd = 1'b0; lx_rev = 1'b0;
         ly_fwd = 1'b0; ly_rev = 1'b0;
         lx_cmp = 11'd0; ly_cmp = 11'd0;
@@ -205,6 +212,68 @@ module top (
         .one   (y_one)
     );
 
+    enc_pos u_enc_x (
+        .clk     (clk),
+        .sample  (sample_done),
+        .raw_a   (ch4),
+        .raw_b   (ch5),
+        .cmd_fwd (x_fwd),
+        .cmd_rev (x_rev),
+        .cmd_on  (x_cmp != 11'd0),
+        .moved   (ex_moved),
+        .lock_p  (ex_lp),
+        .lock_n  (ex_ln),
+        .pos_neg (ex_neg),
+        .pct     (ex_pct),
+        .hun     (ex_hun),
+        .ten     (ex_ten),
+        .one     (ex_one)
+    );
+
+    enc_pos u_enc_y (
+        .clk     (clk),
+        .sample  (sample_done),
+        .raw_a   (ch6),
+        .raw_b   (ch7),
+        .cmd_fwd (y_fwd),
+        .cmd_rev (y_rev),
+        .cmd_on  (y_cmp != 11'd0),
+        .moved   (ey_moved),
+        .lock_p  (ey_lp),
+        .lock_n  (ey_ln),
+        .pos_neg (ey_neg),
+        .pct     (ey_pct),
+        .hun     (ey_hun),
+        .ten     (ey_ten),
+        .one     (ey_one)
+    );
+
+    pwr_lim u_lim_x (
+        .fwd_i   (x_fwd),
+        .rev_i   (x_rev),
+        .cmp_i   (x_cmp),
+        .pct     (ex_pct),
+        .pos_neg (ex_neg),
+        .lock_p  (ex_lp),
+        .lock_n  (ex_ln),
+        .fwd_o   (x_fwd_l),
+        .rev_o   (x_rev_l),
+        .cmp_o   (x_cmp_l)
+    );
+
+    pwr_lim u_lim_y (
+        .fwd_i   (y_fwd),
+        .rev_i   (y_rev),
+        .cmp_i   (y_cmp),
+        .pct     (ey_pct),
+        .pos_neg (ey_neg),
+        .lock_p  (ey_lp),
+        .lock_n  (ey_ln),
+        .fwd_o   (y_fwd_l),
+        .rev_o   (y_rev_l),
+        .cmp_o   (y_cmp_l)
+    );
+
     pwm_timer u_pwm_tmr (
         .clk (clk),
         .cnt (pwm_cnt)
@@ -235,83 +304,63 @@ module top (
     always @(posedge clk) begin
         pix_q <= pixel;
         if (snap_pwm) begin
-            lx_fwd <= x_fwd;
-            lx_rev <= x_rev;
-            lx_cmp <= x_cmp;
-            ly_fwd <= y_fwd;
-            ly_rev <= y_rev;
-            ly_cmp <= y_cmp;
-            sx_fwd <= x_fwd;
-            sx_rev <= x_rev;
-            sx_hun <= x_hun;
-            sx_ten <= x_ten;
-            sx_one <= x_one;
-            sy_fwd <= y_fwd;
-            sy_rev <= y_rev;
-            sy_hun <= y_hun;
-            sy_ten <= y_ten;
-            sy_one <= y_one;
+            lx_fwd <= x_fwd_l;
+            lx_rev <= x_rev_l;
+            lx_cmp <= x_cmp_l;
+            ly_fwd <= y_fwd_l;
+            ly_rev <= y_rev_l;
+            ly_cmp <= y_cmp_l;
         end
         if (snap_lcd) begin
-            s0      <= r0;
-            s1      <= r1;
-            s2      <= r2;
-            s3      <= r3;
-            s4      <= r4;
-            s5      <= r5;
-            s6      <= r6;
-            s7      <= r7;
             d0      <= p0;
             d1      <= p1;
             d2      <= p2;
             d3      <= p3;
-            d4      <= p4;
-            d5      <= p5;
-            d6      <= p6;
-            d7      <= p7;
             sstatus <= adc_status;
             sconv   <= conv_cnt;
             svalid  <= regs_valid;
             sbusy   <= probe_busy;
             sdout   <= probe_dout;
+            sx_neg   <= ex_neg;
+            sx_hun   <= ex_hun;
+            sx_ten   <= ex_ten;
+            sx_one   <= ex_one;
+            sx_moved <= ex_moved;
+            sx_lock  <= ex_lp | ex_ln;
+            sy_neg   <= ey_neg;
+            sy_hun   <= ey_hun;
+            sy_ten   <= ey_ten;
+            sy_one   <= ey_one;
+            sy_moved <= ey_moved;
+            sy_lock  <= ey_lp | ey_ln;
         end
     end
 
     text_pwm u_text (
         .pix_x      (pix_x),
         .pix_y      (pix_y),
-        .ch0        (s0),
-        .ch1        (s1),
-        .ch2        (s2),
-        .ch3        (s3),
-        .ch4        (s4),
-        .ch5        (s5),
-        .ch6        (s6),
-        .ch7        (s7),
         .p0         (d0),
         .p1         (d1),
         .p2         (d2),
         .p3         (d3),
-        .p4         (d4),
-        .p5         (d5),
-        .p6         (d6),
-        .p7         (d7),
         .status     (sstatus),
         .conv_cnt   (sconv),
         .paused     (paused),
         .regs_valid (svalid),
         .busy_pin   (sbusy),
         .dout_pin   (sdout),
-        .x_fwd      (sx_fwd),
-        .x_rev      (sx_rev),
+        .x_neg      (sx_neg),
         .x_hun      (sx_hun),
         .x_ten      (sx_ten),
         .x_one      (sx_one),
-        .y_fwd      (sy_fwd),
-        .y_rev      (sy_rev),
+        .x_moved    (sx_moved),
+        .x_lock     (sx_lock),
+        .y_neg      (sy_neg),
         .y_hun      (sy_hun),
         .y_ten      (sy_ten),
         .y_one      (sy_one),
+        .y_moved    (sy_moved),
+        .y_lock     (sy_lock),
         .pixel      (pixel)
     );
 

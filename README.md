@@ -1,10 +1,10 @@
 # FPGA Tang Nano 9K — MicroscopIA
 
-**Un solo diseño:** AD7606 + LCD ST7789 + 2× DRV8871. No hay un segundo controlador ni un ensayo de un solo puente.
+**Un solo diseño:** AD7606 + LCD ST7789 + 2× DRV8871. Control de **velocidad** por pot + indicadores de encoder **listo**. Siguiente: control de **posición** por encoders.
 
-Carpeta: [`adc-pwm/`](adc-pwm/README.md). En la placa: `openFPGALoader -b tangnano9k -f pack.fs`. Exigir **CRC check: Success**.
+Carpeta: [`adc-pwm/`](adc-pwm/README.md). Cierre: [`adc-pwm/2026-09-11_1413_control-velocidad.md`](adc-pwm/2026-09-11_1413_control-velocidad.md). Flash: `openFPGALoader -b tangnano9k -f pack.fs`. Exigir **CRC check: Success**.
 
-Pots 3.3 V: **V3 → eje X**, **V4 → eje Y**. Centro = 0 %. Hacia 3.3 V = adelante. Hacia 0 V = atrás. PWM 20 kHz, Table 1 (drive ↔ brake), GPIO 3.3 V directo a IN1/IN2.
+Pots 3.3 V: **V3 → eje X**, **V4 → eje Y**. Hall A/B: **V5/V6 = X**, **V7/V8 = Y**. Centro al encender = 0 %. PWM 20 kHz, Table 1 (drive ↔ brake). Fin de carrera por stall; el pot manda entero hasta que un tope se traba.
 
 | Qué | Dónde |
 | --- | --- |
@@ -36,4 +36,4 @@ No hace falta el IDE de Gowin.
 
 Comandos en [`adc-pwm/README.md`](adc-pwm/README.md). Antes del primer JTAG: Zadig, **WinUSB solo en Interface 0**. Detect: `GW1N(R)-9C`.
 
-Fecha: 2026-09-11. Host: Windows. Remoto: [Nahzap/FPGA_Tang_9K-MicroscopIA](https://github.com/Nahzap/FPGA_Tang_9K-MicroscopIA).
+Cierre **2026-09-11 14:13 (UTC-3)**. Host: Windows. Remoto: [Nahzap/FPGA_Tang_9K-MicroscopIA](https://github.com/Nahzap/FPGA_Tang_9K-MicroscopIA).

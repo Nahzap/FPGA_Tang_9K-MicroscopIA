@@ -1,40 +1,30 @@
-// LCD text for adc-pwm. One job: 240x135 glyphs from latched ADC + two pot commands.
-// No I2C. No IMU.
+// LCD: title, V1..V4 (sign + 3 decimals), X/Y position ±ddd, status.
+// Encoder channels stay off the glass. No hex on the voltages.
 module text_pwm (
     input  wire [7:0]  pix_x,
     input  wire [7:0]  pix_y,
-    input  wire [15:0] ch0,
-    input  wire [15:0] ch1,
-    input  wire [15:0] ch2,
-    input  wire [15:0] ch3,
-    input  wire [15:0] ch4,
-    input  wire [15:0] ch5,
-    input  wire [15:0] ch6,
-    input  wire [15:0] ch7,
     input  wire [16:0] p0,
     input  wire [16:0] p1,
     input  wire [16:0] p2,
     input  wire [16:0] p3,
-    input  wire [16:0] p4,
-    input  wire [16:0] p5,
-    input  wire [16:0] p6,
-    input  wire [16:0] p7,
     input  wire [2:0]  status,
     input  wire [15:0] conv_cnt,
     input  wire        paused,
     input  wire        regs_valid,
     input  wire        busy_pin,
     input  wire        dout_pin,
-    input  wire        x_fwd,
-    input  wire        x_rev,
+    input  wire        x_neg,
     input  wire [3:0]  x_hun,
     input  wire [3:0]  x_ten,
     input  wire [3:0]  x_one,
-    input  wire        y_fwd,
-    input  wire        y_rev,
+    input  wire        x_moved,
+    input  wire        x_lock,
+    input  wire        y_neg,
     input  wire [3:0]  y_hun,
     input  wire [3:0]  y_ten,
     input  wire [3:0]  y_one,
+    input  wire        y_moved,
+    input  wire        y_lock,
     output wire [15:0] pixel
 );
     localparam [7:0]  MARGIN_X = 8'd4;
@@ -50,12 +40,10 @@ module text_pwm (
         begin
             case (ch)
                 7'd32: glyph64 = 64'h0000000000000000;
-                7'd37: glyph64 = 64'h0063660C18336300; // %
-                7'd62: glyph64 = 64'h00060C18300C0600; // >
+                7'd42: glyph64 = 64'h00663CFF3C660000; // *
                 7'd43: glyph64 = 64'h000C0C3F0C0C0000; // +
                 7'd45: glyph64 = 64'h0000003F00000000; // -
                 7'd46: glyph64 = 64'h00000000000C0C00; // .
-                7'd47: glyph64 = 64'h6030180C06030100; // /
                 7'd48: glyph64 = 64'h3E63737B6F673E00; // 0
                 7'd49: glyph64 = 64'h0C0E0C0C0C0C3F00; // 1
                 7'd50: glyph64 = 64'h1E33301C06333F00; // 2
@@ -71,8 +59,7 @@ module text_pwm (
                 7'd66: glyph64 = 64'h3F66663E66663F00; // B
                 7'd67: glyph64 = 64'h3C66030303663C00; // C
                 7'd68: glyph64 = 64'h1F36666666361F00; // D
-                7'd69: glyph64 = 64'h7F46161E16467F00; // E
-                7'd70: glyph64 = 64'h7F46161E16060F00; // F
+                7'd72: glyph64 = 64'h63636B7F7F6B6300; // H
                 7'd73: glyph64 = 64'h1E0C0C0C0C0C1E00; // I
                 7'd75: glyph64 = 64'h6766361E36666700; // K
                 7'd76: glyph64 = 64'h0F06060646667F00; // L
@@ -112,34 +99,14 @@ module text_pwm (
         end
     endfunction
 
-    function [15:0] pick_ch;
-        input [3:0] idx;
-        begin
-            case (idx)
-                4'd0: pick_ch = ch0;
-                4'd1: pick_ch = ch1;
-                4'd2: pick_ch = ch2;
-                4'd3: pick_ch = ch3;
-                4'd4: pick_ch = ch4;
-                4'd5: pick_ch = ch5;
-                4'd6: pick_ch = ch6;
-                default: pick_ch = ch7;
-            endcase
-        end
-    endfunction
-
     function [16:0] pick_p;
-        input [3:0] idx;
+        input [2:0] idx;
         begin
-            case (idx)
-                4'd0: pick_p = p0;
-                4'd1: pick_p = p1;
-                4'd2: pick_p = p2;
-                4'd3: pick_p = p3;
-                4'd4: pick_p = p4;
-                4'd5: pick_p = p5;
-                4'd6: pick_p = p6;
-                default: pick_p = p7;
+            case (idx[1:0])
+                2'd0: pick_p = p0;
+                2'd1: pick_p = p1;
+                2'd2: pick_p = p2;
+                default: pick_p = p3;
             endcase
         end
     endfunction
@@ -150,22 +117,21 @@ module text_pwm (
     wire [7:0] rel_x     = pix_x - MARGIN_X;
     wire [4:0] col_i     = rel_x[7:3];
     wire [2:0] glyph_bit = rel_x[2:0];
-    wire       col_ok    = !in_margin && (col_i < 5'd22) && (line_i <= 5'd12);
+    wire       col_ok    = !in_margin && (col_i < 5'd22) && (line_i <= 5'd7);
 
-    wire [3:0]  ch_sel = line_i[3:0] - 4'd1;
-    wire [15:0] raw    = pick_ch(ch_sel);
-    wire [16:0] pk     = pick_p(ch_sel);
-    wire        neg    = pk[16];
-    wire [3:0]  ip     = pk[15:12];
-    wire [3:0]  d1     = pk[11:8];
-    wire [3:0]  d2     = pk[7:4];
-    wire [3:0]  d3     = pk[3:0];
+    wire [16:0] pk  = pick_p(line_i[2:0] - 3'd1);
+    wire        vneg = pk[16];
+    wire [3:0]  ip   = pk[15:12];
+    wire [3:0]  d1   = pk[11:8];
+    wire [3:0]  d2   = pk[7:4];
+    wire [3:0]  d3   = pk[3:0];
 
-    wire       ax_fwd = (line_i == 5'd10) ? x_fwd : y_fwd;
-    wire       ax_rev = (line_i == 5'd10) ? x_rev : y_rev;
-    wire [3:0] hun    = (line_i == 5'd10) ? x_hun : y_hun;
-    wire [3:0] ten    = (line_i == 5'd10) ? x_ten : y_ten;
-    wire [3:0] one    = (line_i == 5'd10) ? x_one : y_one;
+    wire       ax_neg = (line_i == 5'd5) ? x_neg  : y_neg;
+    wire [3:0] hun    = (line_i == 5'd5) ? x_hun  : y_hun;
+    wire [3:0] ten    = (line_i == 5'd5) ? x_ten  : y_ten;
+    wire [3:0] one    = (line_i == 5'd5) ? x_one  : y_one;
+    wire       moved  = (line_i == 5'd5) ? x_moved : y_moved;
+    wire       locked = (line_i == 5'd5) ? x_lock : y_lock;
 
     reg [7:0] ch;
     always @(*) begin
@@ -186,26 +152,32 @@ module text_pwm (
                 5'd11: ch = "V";
                 default: ch = " ";
             endcase
-        end else if (line_i >= 5'd1 && line_i <= 5'd8) begin
+        end else if (line_i >= 5'd1 && line_i <= 5'd4) begin
             case (col_i)
-                5'd0:  ch = "V";
-                5'd1:  ch = 8'd48 + {4'd0, line_i[3:0]};
-                5'd2:  ch = ":";
-                5'd3:  ch = hexc(raw[15:12]);
-                5'd4:  ch = hexc(raw[11:8]);
-                5'd5:  ch = hexc(raw[7:4]);
-                5'd6:  ch = hexc(raw[3:0]);
-                5'd7:  ch = " ";
-                5'd8:  ch = neg ? "-" : "+";
-                5'd9:  ch = 8'd48 + {4'd0, ip};
-                5'd10: ch = ".";
-                5'd11: ch = 8'd48 + {4'd0, d1};
-                5'd12: ch = 8'd48 + {4'd0, d2};
-                5'd13: ch = 8'd48 + {4'd0, d3};
-                5'd14: ch = "V";
+                5'd0: ch = "V";
+                5'd1: ch = 8'd48 + {4'd0, line_i[3:0]};
+                5'd2: ch = ":";
+                5'd3: ch = vneg ? "-" : "+";
+                5'd4: ch = 8'd48 + {4'd0, ip};
+                5'd5: ch = ".";
+                5'd6: ch = 8'd48 + {4'd0, d1};
+                5'd7: ch = 8'd48 + {4'd0, d2};
+                5'd8: ch = 8'd48 + {4'd0, d3};
                 default: ch = " ";
             endcase
-        end else if (line_i == 5'd9) begin
+        end else if (line_i == 5'd5 || line_i == 5'd6) begin
+            case (col_i)
+                5'd0: ch = (line_i == 5'd5) ? "X" : "Y";
+                5'd1: ch = ":";
+                5'd2: ch = ax_neg ? "-" : "+";
+                5'd3: ch = 8'd48 + {4'd0, hun};
+                5'd4: ch = 8'd48 + {4'd0, ten};
+                5'd5: ch = 8'd48 + {4'd0, one};
+                5'd6: ch = moved ? "*" : " ";
+                5'd7: ch = locked ? "L" : " ";
+                default: ch = " ";
+            endcase
+        end else if (line_i == 5'd7) begin
             if (paused) begin
                 case (col_i)
                     5'd0: ch = "P";
@@ -265,31 +237,6 @@ module text_pwm (
             if (col_i == 5'd10) ch = busy_pin ? "1" : "0";
             if (col_i == 5'd12) ch = "D";
             if (col_i == 5'd13) ch = dout_pin ? "1" : "0";
-        end else if (line_i == 5'd10 || line_i == 5'd11) begin
-            case (col_i)
-                5'd0: ch = (line_i == 5'd10) ? "X" : "Y";
-                5'd1: ch = ":";
-                5'd2: ch = ax_fwd ? "F" : (ax_rev ? "R" : " ");
-                5'd3: ch = " ";
-                5'd4: ch = 8'd48 + {4'd0, hun};
-                5'd5: ch = 8'd48 + {4'd0, ten};
-                5'd6: ch = 8'd48 + {4'd0, one};
-                5'd7: ch = "%";
-                default: ch = " ";
-            endcase
-        end else if (line_i == 5'd12) begin
-            case (col_i)
-                5'd0:  ch = "V";
-                5'd1:  ch = "3";
-                5'd2:  ch = ">";
-                5'd3:  ch = "X";
-                5'd4:  ch = " ";
-                5'd5:  ch = "V";
-                5'd6:  ch = "4";
-                5'd7:  ch = ">";
-                5'd8:  ch = "Y";
-                default: ch = " ";
-            endcase
         end
     end
 
@@ -298,9 +245,9 @@ module text_pwm (
 
     wire [15:0] fg =
         (line_i == 5'd0) ? COL_YEL :
-        (line_i == 5'd9 && (paused || status == 3'd4 || status == 3'd5)) ? COL_RED :
-        (line_i == 5'd9) ? COL_GREEN :
-        (line_i == 5'd3 || line_i == 5'd4 || line_i >= 5'd10) ? COL_CYAN :
+        (line_i == 5'd7 && (paused || status == 3'd4 || status == 3'd5)) ? COL_RED :
+        (line_i == 5'd7) ? COL_GREEN :
+        (line_i == 5'd3 || line_i == 5'd4 || line_i == 5'd5 || line_i == 5'd6) ? COL_CYAN :
         COL_AMBER;
 
     assign pixel = on ? fg : COL_BG;
