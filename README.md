@@ -2,7 +2,7 @@
 
 Laboratorio en una **Sipeed Tang Nano 9K**: de un LED a un programa que vive en la flash SPI. Cada carpeta es un capítulo. El silicio puede hacer varias cosas a la vez; **estos README no**: se leen de arriba abajo.
 
-**Residente en la placa (2026-08-25 16:08, America/New_York, UTC-4):** [`adc-lcd/`](adc-lcd/README.md) — AD7606 SPI (V1…V8) + GY-91 MPU9250 I2C (WHO, accel, gyro) en la LCD 1.14″. `openFPGALoader -b tangnano9k -f pack.fs`, **CRC check: Success**. Sobrevive al apagar.
+**Residente en la placa:** [`adc-pwm/`](adc-pwm/README.md) — 2× DRV8871, ADC, pots V3/V4, PWM directo Table 1. `openFPGALoader -b tangnano9k -f pack.fs`, exigir **CRC check: Success**.
 
 Registro de cierre de este commit: **2026-08-25 16:12 (UTC-4)**. GY-91 visible bajo las líneas del ADC; el usuario confirmó que funciona.
 
@@ -13,6 +13,8 @@ Registro de cierre de este commit: **2026-08-25 16:12 (UTC-4)**. GY-91 visible b
 | 3 | [`lcd-grid/`](lcd-grid/README.md) | ¿La LCD de 1.14" muestra una imagen nuestra? | Rejilla turbo que cambia de color |
 | 4 | [`lcd-params/`](lcd-params/README.md) | ¿El diseño se explica solo y sobrevive al apagado? | Teleprompter + flash SPI |
 | 5 | [`adc-lcd/`](adc-lcd/README.md) | ¿El AD7606 SPI y el GY-91 I2C se ven en la LCD 1″? | V1…V8 + WHO/accel/gyro; **flash SPI** |
+| 6 | [`adc-pwm/`](adc-pwm/README.md) | ¿V3/V4 mandan 4 PWM a 2× DRV8871? | **Flash SPI** |
+| 7 | [`adc-drv1/`](adc-drv1/README.md) | Un solo puente (ensayo) | Historia |
 
 Las notas de planificación (`Docs/`) **no van en este remoto**. Quedan en el disco local y en `.gitignore`.
 
