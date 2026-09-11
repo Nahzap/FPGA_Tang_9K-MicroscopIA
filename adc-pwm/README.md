@@ -1,8 +1,8 @@
-# ADC + 4 PWM (pots V3/V4)
+# ADC + LCD + 2× DRV8871
 
-**Capítulo 6.** Pregunta: ¿la FPGA lee el AD7606 como en el capítulo 5 y manda cuatro PWM a dos DRV8871, con un potenciómetro de 3.3 V por eje?
+Este es el diseño. La FPGA lee el AD7606, pinta la LCD 1.14″ y manda cuatro PWM a **dos** DRV8871, un potenciómetro de 3.3 V por eje.
 
-**Residente:** GPIO 3.3 V directo a IN1/IN2 de **dos** DRV8871. Sin 1201 en el camino. `orch` manda; map X, map Y y format arrancan juntos. La LCD no apaga un pin. **V3 → X, V4 → Y.** Centro = 0 %. 3.3 V = adelante. 0 V = atrás.
+GPIO 3.3 V directo a IN1/IN2. Sin 1201 en el camino. `orch` manda; map X, map Y y format arrancan juntos. La LCD no apaga un pin. **V3 → X, V4 → Y.** Centro = 0 %. 3.3 V = adelante. 0 V = atrás.
 
 ---
 
@@ -44,7 +44,7 @@ S1/S2 → 00. LED2 parpadea con cada conversión.
 - **`format_scan`**: copia V1…V8 al arrancar, así el ADC puede volver a convertir mientras se pintan voltios.
 - **`map_pot` × 2**: dos etapas registradas (mV, luego duty/BCD). No es un bucle de 1350 restas. X e Y son dos circuitos, el mismo `map_go`.
 - **`pwm_timer` + `pwm_drv` × 2**: 20 kHz, Table 1 (drive/brake), latch en `cnt==0`, wake ~50 µs. `pwm_en` no mira la LCD.
-- **`format_scan`**: un datapath que recorre V1…V8. Ocho formateadores en paralelo ya llenaron el 86 % de LUT4 en el capítulo 5 y nextpnr no terminó.
+- **`format_scan`**: un datapath que recorre V1…V8. Ocho formateadores en paralelo llenan el FPGA y nextpnr no termina.
 - **`top`**: solo cablea y copia registros en `snap_pwm` / `snap_lcd`.
 
 ```
@@ -85,7 +85,7 @@ adc-pwm/
 
 ## 4. Rebuild (flash SPI — residente)
 
-Este capítulo es un **controlador**: tiene que arrancar solo. La carga que cuenta es `-f`. SRAM solo para un ensayo; al apagar se pierde.
+Es el **controlador residente**: tiene que arrancar solo. La carga que cuenta es `-f`. SRAM solo para un ensayo; al apagar se pierde.
 
 ```powershell
 cd D:\FPGA
@@ -111,6 +111,6 @@ Pot 0…3.3 V sobre F4 ±5 V. Centro 1.65 V (raw ≈ 10813) = 0 %. Banda muerta 
 
 LUT4 **39 %**, ALU **21 %**, DFF **18 %**. fmax post-ruta **31.65 MHz** (PASS @ 27 MHz). `tb_orch` ALL PASS, incluido ADC mientras el formateo sigue ocupado.
 
-Flash **2026-09-11 ~11:15 UTC-3:** `openFPGALoader -b tangnano9k -f pack.fs`, **CRC check: Success**. Este dual pisa el ensayo de un solo puente (`adc-drv1`, que dejaba 41/42 en 0).
+Flash **2026-09-11 ~11:15 UTC-3:** `openFPGALoader -b tangnano9k -f pack.fs`, **CRC check: Success**.
 
 Índice: [`../README.md`](../README.md). Plan: `Docs/2026-09-10_1806_plan-adc-pwm-manual.md` (local).

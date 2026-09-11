@@ -1,4 +1,4 @@
-// Capítulo 6: AD7606 + 4 PWM. top solo cablea. orch manda.
+// AD7606 + LCD + 2× DRV8871. top solo cablea. orch manda.
 // map X, map Y y format_scan arrancan juntos. El PWM no espera a la LCD.
 module top (
     input  wire clk,
