@@ -3,7 +3,7 @@
 // Percent is 7 sequential compare-add bits (0..100), not a 23-bit / in one cycle.
 module enc_pos #(
     parameter integer TH    = 10813,
-    parameter integer STALL = 100
+    parameter integer STALL = 200
 ) (
     input  wire        clk,
     input  wire        sample,
@@ -13,6 +13,7 @@ module enc_pos #(
     input  wire        cmd_rev,
     input  wire        cmd_on,
     output reg         moved,
+    output reg         skip,
     output reg         lock_p,
     output reg         lock_n,
     output reg         pos_neg,
@@ -32,7 +33,9 @@ module enc_pos #(
     reg        b_r   = 1'b0;
     reg        busy  = 1'b0;
     reg [2:0]  bit_i = 3'd0;
-    reg [7:0]  stall = 8'd0;
+    reg [7:0]  stall  = 8'd0;
+    reg [3:0]  steps_p = 4'd0;
+    reg [3:0]  steps_m = 4'd0;
     reg [15:0] pos   = 16'd0;
     reg [15:0] maxp  = 16'd0;
     reg [15:0] minp  = 16'd0;
@@ -50,6 +53,7 @@ module enc_pos #(
     wire minus = have && (tr == 4'b0010 || tr == 4'b1011 ||
                            tr == 4'b1101 || tr == 4'b0100);
     wire flank = plus || minus;
+    wire skip_w = have && (nows != prev) && !flank;
 
     wire [15:0] pos_plus  = pos + 16'd1;
     wire [15:0] pos_minus = pos - 16'd1;
@@ -92,6 +96,7 @@ module enc_pos #(
 
     initial begin
         moved   = 1'b0;
+        skip    = 1'b0;
         lock_p  = 1'b0;
         lock_n  = 1'b0;
         pos_neg = 1'b0;
@@ -110,11 +115,31 @@ module enc_pos #(
             maxp    <= max_n;
             minp    <= min_n;
             moved   <= flank;
+            skip    <= skip_w;
             stall   <= stall_n;
-            if (fire && cmd_p)
-                lock_p <= 1'b1;
-            if (fire && cmd_m)
-                lock_n <= 1'b1;
+            if (cmd_p) begin
+                if (plus && steps_p != 4'd15)
+                    steps_p <= steps_p + 4'd1;
+            end else
+                steps_p <= 4'd0;
+            if (cmd_m) begin
+                if (minus && steps_m != 4'd15)
+                    steps_m <= steps_m + 4'd1;
+            end else
+                steps_m <= 4'd0;
+            if (!cmd_fwd && !cmd_rev) begin
+                lock_p <= 1'b0;
+                lock_n <= 1'b0;
+            end else begin
+                if (cmd_rev && !cmd_fwd)
+                    lock_p <= 1'b0;
+                if (cmd_fwd && !cmd_rev)
+                    lock_n <= 1'b0;
+                if (fire && cmd_p && steps_p >= 4'd8)
+                    lock_p <= 1'b1;
+                if (fire && cmd_m && steps_m >= 4'd8)
+                    lock_n <= 1'b1;
+            end
             mag_r   <= mag_n;
             den_r   <= den_n;
             rhs     <= {7'd0, mag_n} * 23'd100;

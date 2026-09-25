@@ -12,7 +12,7 @@ module tb_enc_pos;
     reg         cmd_fwd = 1'b0;
     reg         cmd_rev = 1'b0;
     reg         cmd_on  = 1'b0;
-    wire        moved, lock_p, lock_n, pos_neg;
+    wire        moved, skip, lock_p, lock_n, pos_neg;
     wire [6:0]  pct;
     wire [3:0]  hun, ten, one;
     integer     fail;
@@ -22,7 +22,7 @@ module tb_enc_pos;
         .clk(clk), .sample(sample),
         .raw_a(raw_a), .raw_b(raw_b),
         .cmd_fwd(cmd_fwd), .cmd_rev(cmd_rev), .cmd_on(cmd_on),
-        .moved(moved), .lock_p(lock_p), .lock_n(lock_n),
+        .moved(moved), .skip(skip), .lock_p(lock_p), .lock_n(lock_n),
         .pos_neg(pos_neg), .pct(pct),
         .hun(hun), .ten(ten), .one(one)
     );
@@ -122,7 +122,17 @@ module tb_enc_pos;
         set_ab(1'b0, 1'b0);
         for (i = 0; i < 10; i = i + 1)
             beat;
-        if (!lock_p) begin
+        if (lock_p || lock_n) begin
+            $display("FAIL stall without travel lp=%0d ln=%0d", lock_p, lock_n);
+            fail = fail + 1;
+        end else
+            $display("PASS no lock before 8 steps");
+
+        step_plus;
+        step_plus;
+        for (i = 0; i < 10; i = i + 1)
+            beat;
+        if (!lock_p || lock_n) begin
             $display("FAIL stall lock_p=%0d lock_n=%0d", lock_p, lock_n);
             fail = fail + 1;
         end else
@@ -131,13 +141,25 @@ module tb_enc_pos;
         cmd_fwd = 1'b0;
         cmd_rev = 1'b1;
         cmd_on  = 1'b1;
+        step_minus;
+        step_minus;
         for (i = 0; i < 10; i = i + 1)
             beat;
-        if (!lock_n) begin
-            $display("FAIL stall lock_n=%0d", lock_n);
+        if (!lock_n || lock_p) begin
+            $display("FAIL stall lock_n=%0d lock_p=%0d", lock_n, lock_p);
             fail = fail + 1;
         end else
             $display("PASS stall lock_n");
+
+        cmd_fwd = 1'b0;
+        cmd_rev = 1'b0;
+        cmd_on  = 1'b0;
+        beat;
+        if (lock_p || lock_n) begin
+            $display("FAIL center should clear lp=%0d ln=%0d", lock_p, lock_n);
+            fail = fail + 1;
+        end else
+            $display("PASS center clears locks");
 
         cmd_on  = 1'b0;
         cmd_rev = 1'b0;

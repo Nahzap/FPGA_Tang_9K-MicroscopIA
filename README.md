@@ -1,10 +1,14 @@
 # FPGA Tang Nano 9K — MicroscopIA
 
-**Un solo diseño:** AD7606 + LCD ST7789 + 2× DRV8871. Control de **velocidad** por pot + indicadores de encoder **listo**. Siguiente: control de **posición** por encoders.
+**Diseño en la placa:** [`Motor_CTRL_v2.0/`](Motor_CTRL_v2.0/README.md). AD7606 + LCD ST7789 + 2× DRV8871. Los potenciómetros piden un lugar en la guía: 69 mm en X y 52 mm en Y. Se calibra con `x_zero`/`x_final` e `y_zero`/`y_final`. Los dos ejes comparten un solo circuito de posición, con una sola potencia y frenada anticipada: el eje llega sin vibrar. Protocolo serial de Lab 206 a 115200; potencias en % del PWM. Constantes en `Motor_CTRL_v2.0/config.vh`.
 
-Carpeta: [`adc-pwm/`](adc-pwm/README.md). Cierre: [`adc-pwm/2026-09-11_1413_control-velocidad.md`](adc-pwm/2026-09-11_1413_control-velocidad.md). Flash: `openFPGALoader -b tangnano9k -f pack.fs`. Exigir **CRC check: Success**.
+**Último reporte de avance, con diagramas de arquitectura:** [2026-09-25 16:15 (UTC-3)](Motor_CTRL_v2.0/README.md#reporte-de-avance--2026-09-25-1615-utc-3).
 
-Pots 3.3 V: **V3 → eje X**, **V4 → eje Y**. Hall A/B: **V5/V6 = X**, **V7/V8 = Y**. Centro al encender = 0 %. PWM 20 kHz, Table 1 (drive ↔ brake). Fin de carrera por stall; el pot manda entero hasta que un tope se traba.
+**Velocidad, la imagen anterior:** [`Motor_Ctrl_v1.0/`](Motor_Ctrl_v1.0/README.md). `adc-pwm/` es el ensayo anterior a esa.
+
+Compilar y grabar la flash desde `Motor_CTRL_v2.0`: `.\build.ps1`. Solo grabar lo ya compilado: `.\build.ps1 -LoadOnly`. Exige **CRC check: Success**.
+
+Pots 3.3 V: **V3 → eje X**, **V4 → eje Y**. Hall que se mueven con X: **V7/V8**. Con Y: **V5/V6**. PWM 50 kHz (`Motor_CTRL_v2.0/config.vh`). Reposo 00. `B` por el serial es freno (11).
 
 | Qué | Dónde |
 | --- | --- |
@@ -34,6 +38,6 @@ No hace falta el IDE de Gowin.
 4. **gowin_pack** → `pack.fs` (`-d GW1N-9C --sspi_as_gpio --mspi_as_gpio`).
 5. **Carga.** SRAM para un ensayo. **Flash** (`-f`) para que arranque solo. Un `-f` sustituye al bitstream anterior.
 
-Comandos en [`adc-pwm/README.md`](adc-pwm/README.md). Antes del primer JTAG: Zadig, **WinUSB solo en Interface 0**. Detect: `GW1N(R)-9C`.
+En `Motor_CTRL_v2.0` los cinco pasos los hace `build.ps1` (ver [Cómo se graba](Motor_CTRL_v2.0/README.md#cómo-se-graba)). Antes del primer JTAG: Zadig, **WinUSB solo en Interface 0**. Detect: `GW1N(R)-9C`.
 
-Cierre **2026-09-11 14:13 (UTC-3)**. Host: Windows. Remoto: [Nahzap/FPGA_Tang_9K-MicroscopIA](https://github.com/Nahzap/FPGA_Tang_9K-MicroscopIA).
+Cierre **2026-09-25 16:15 (UTC-3)**. Host: Windows. Remoto: [Nahzap/FPGA_Tang_9K-MicroscopIA](https://github.com/Nahzap/FPGA_Tang_9K-MicroscopIA).

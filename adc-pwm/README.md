@@ -27,7 +27,7 @@ OK
 
 Pot al centro = 00. Hacia 3.3 V = adelante. Hacia 0 V = atrás. Table 1: drive ↔ brake.
 
-Mientras se explora (sin `L`), el pot manda entero aunque la pantalla muestre +100 %. Al llegar a un tope mecánico (~100 ms sin flancos con mando), `L` y el duty baja en los últimos 20 %. En ±100 % locked ese sentido corta; el contrario sigue libre.
+El pot fija la **velocidad**, no el PWM crudo. 100 % del pot = **1000 μm/s** en los dos ejes. Y carga con X, así que su techo de PWM es el doble: X cmp 270/1350 (~20 %), Y cmp 540/1350 (~40 %). Cada lazo escucha el Hall que de verdad gira con ese motor. Si el encoder va más rápido que el objetivo, el PWM de ese eje baja; en régimen Y queda con más duty. El fin de carrera solo se traba tras 8 pasos en ese sentido y luego ~200 ms en el techo sin flancos; aparece `L` y ese sentido se corta. El sentido contrario lo suelta. Pot al centro suelta los dos.
 
 ---
 
@@ -74,8 +74,8 @@ adc-pwm/
 | PWM Y | 41 / 42 = J5-15 / 16 |
 | LCD | 47, 48, 49, 76, 77 |
 | S1 / S2 / LED2 | 3 / 4 / 11 |
-| Enc X A/B | F4 **V5 / V6** |
-| Enc Y A/B | F4 **V7 / V8** |
+| Enc X A/B | F4 **V7 / V8** (se mueven con el motor X) |
+| Enc Y A/B | F4 **V5 / V6** (se mueven con el motor Y) |
 | Hall Vcc / GND | J6-24 **+3.3 V** / J6-23 GND |
 
 ---
@@ -92,7 +92,9 @@ iverilog -o tb_fmt.vvp format_scan.v tb_format_scan.v; vvp tb_fmt.vvp
 iverilog -o tb_orch.vvp orch.v tb_orch.v; vvp tb_orch.vvp
 iverilog -o tb_enc.vvp enc_pos.v tb_enc_pos.v; vvp tb_enc.vvp
 iverilog -o tb_lim.vvp pwr_lim.v tb_pwr_lim.v; vvp tb_lim.vvp
-yosys -p "read_verilog top.v orch.v adc_master.v format_scan.v map_pot.v enc_pos.v pwr_lim.v pwm_timer.v pwm_drv.v text_pwm.v lcd_master.v btn_sync.v pause_reg.v; synth_gowin -top top -nodsp -json top.json"
+iverilog -o tb_spd.vvp spd_ctl.v tb_spd_ctl.v; vvp tb_spd.vvp
+iverilog -o tb_dbg.vvp dbg_uart.v tb_dbg_uart.v; vvp tb_dbg.vvp
+yosys -p "read_verilog top.v orch.v adc_master.v format_scan.v map_pot.v enc_pos.v spd_ctl.v pwr_lim.v dbg_uart.v pwm_timer.v pwm_drv.v text_pwm.v lcd_master.v btn_sync.v pause_reg.v; synth_gowin -top top -nodsp -json top.json"
 nextpnr-himbaechel --json top.json --write pnr.json --device GW1NR-LV9QN88PC6/I5 --freq 27 --vopt family=GW1N-9C --vopt cst=board.cst
 gowin_pack -d GW1N-9C --sspi_as_gpio --mspi_as_gpio -o pack.fs pnr.json
 openFPGALoader -b tangnano9k -f pack.fs
@@ -100,10 +102,20 @@ openFPGALoader -b tangnano9k -f pack.fs
 
 Exigir **CRC check: Success**.
 
+Monitor del lazo (115200 8N1, pin 17 hacia el USB):
+
+```powershell
+cd D:\FPGA\adc-pwm
+.\mon.ps1
+.\mon.ps1 COM5
+```
+
+`eje,pausa,dir,pot,cmp,eff,mov,skip,lock,um/s,rawA,rawB`. pot y cmp en hex (`64` = 100 %, techo X `10E`, techo Y `21C`). `mov`/`skip` se quedan en 1 si hubo flanco desde la línea anterior.
+
 ---
 
 ## 5. Escala
 
-Pot 0…3.3 V, centro 1.65 V, banda ±66 mV. PWM 20 kHz, pulso mínimo 27 clocks. Hall umbral 1.65 V. Stall 100 muestras (~100 ms). Banda de recorte 20 %. LUT4 **68 %**. fmax post-ruta **39.56 MHz** (PASS @ 27 MHz).
+Pot 0…3.3 V, centro 1.65 V, banda ±66 mV. Tope **1000 μm/s** (560 cuentas/s) en X y en Y. PWM 20 kHz. Techo X cmp 270, techo Y cmp 540. Fin de carrera: 8 pasos y luego 200 ms sin flancos. LUT4 **83 %**. fmax post-ruta **35.37 MHz** (PASS @ 27 MHz).
 
 Índice: [`../README.md`](../README.md). Resultados: [`2026-09-11_1413_control-velocidad.md`](2026-09-11_1413_control-velocidad.md). Pinout local: `Docs/2026-09-10_1543_pinout-adc-pwm.md`.

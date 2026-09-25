@@ -13,26 +13,12 @@ module text_pwm (
     input  wire        regs_valid,
     input  wire        busy_pin,
     input  wire        dout_pin,
-    input  wire        x_neg,
-    input  wire [3:0]  x_hun,
-    input  wire [3:0]  x_ten,
-    input  wire [3:0]  x_one,
+    input  wire [23:0] x_dig,
     input  wire        x_moved,
     input  wire        x_lock,
-    input  wire [3:0]  x_sth,
-    input  wire [3:0]  x_shu,
-    input  wire [3:0]  x_ste,
-    input  wire [3:0]  x_son,
-    input  wire        y_neg,
-    input  wire [3:0]  y_hun,
-    input  wire [3:0]  y_ten,
-    input  wire [3:0]  y_one,
+    input  wire [23:0] y_dig,
     input  wire        y_moved,
     input  wire        y_lock,
-    input  wire [3:0]  y_sth,
-    input  wire [3:0]  y_shu,
-    input  wire [3:0]  y_ste,
-    input  wire [3:0]  y_son,
     output wire [15:0] pixel
 );
     localparam [7:0]  MARGIN_X = 8'd4;
@@ -134,16 +120,10 @@ module text_pwm (
     wire [3:0]  d2   = pk[7:4];
     wire [3:0]  d3   = pk[3:0];
 
-    wire       ax_neg = (line_i == 5'd5) ? x_neg  : y_neg;
-    wire [3:0] hun    = (line_i == 5'd5) ? x_hun  : y_hun;
-    wire [3:0] ten    = (line_i == 5'd5) ? x_ten  : y_ten;
-    wire [3:0] one    = (line_i == 5'd5) ? x_one  : y_one;
-    wire       moved  = (line_i == 5'd5) ? x_moved : y_moved;
-    wire       locked = (line_i == 5'd5) ? x_lock : y_lock;
-    wire [3:0] sth    = (line_i == 5'd5) ? x_sth : y_sth;
-    wire [3:0] shu    = (line_i == 5'd5) ? x_shu : y_shu;
-    wire [3:0] ste    = (line_i == 5'd5) ? x_ste : y_ste;
-    wire [3:0] son    = (line_i == 5'd5) ? x_son : y_son;
+    // Six-digit step count of that axis, most significant digit first.
+    wire [23:0] cnt    = (line_i == 5'd5) ? x_dig : y_dig;
+    wire        moved  = (line_i == 5'd5) ? x_moved : y_moved;
+    wire        locked = (line_i == 5'd5) ? x_lock : y_lock;
 
     reg [7:0] ch;
     always @(*) begin
@@ -181,16 +161,14 @@ module text_pwm (
             case (col_i)
                 5'd0: ch = (line_i == 5'd5) ? "X" : "Y";
                 5'd1: ch = ":";
-                5'd2: ch = ax_neg ? "-" : "+";
-                5'd3: ch = 8'd48 + {4'd0, hun};
-                5'd4: ch = 8'd48 + {4'd0, ten};
-                5'd5: ch = 8'd48 + {4'd0, one};
-                5'd6: ch = moved ? "*" : " ";
-                5'd7: ch = locked ? "L" : " ";
-                5'd9: ch = 8'd48 + {4'd0, sth};
-                5'd10: ch = 8'd48 + {4'd0, shu};
-                5'd11: ch = 8'd48 + {4'd0, ste};
-                5'd12: ch = 8'd48 + {4'd0, son};
+                5'd2: ch = 8'd48 + {4'd0, cnt[23:20]};
+                5'd3: ch = 8'd48 + {4'd0, cnt[19:16]};
+                5'd4: ch = 8'd48 + {4'd0, cnt[15:12]};
+                5'd5: ch = 8'd48 + {4'd0, cnt[11:8]};
+                5'd6: ch = 8'd48 + {4'd0, cnt[7:4]};
+                5'd7: ch = 8'd48 + {4'd0, cnt[3:0]};
+                5'd9: ch = moved ? "*" : " ";
+                5'd10: ch = locked ? "L" : " ";
                 default: ch = " ";
             endcase
         end else if (line_i == 5'd7) begin

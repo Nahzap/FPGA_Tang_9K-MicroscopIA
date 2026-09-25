@@ -18,6 +18,7 @@ zadig*.exe
 *.lxt
 *.lxt2
 *.fst
+*.log
 
 # OS / editor
 Thumbs.db

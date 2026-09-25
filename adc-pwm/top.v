@@ -20,7 +20,8 @@ module top (
     output wire lcd_cs,
     output wire lcd_rs,
     output wire lcd_data,
-    output wire led
+    output wire led,
+    output wire uart_tx
 );
     wire        pause_toggle;
     wire        paused;
@@ -48,14 +49,19 @@ module top (
     wire [10:0] x_cmp, y_cmp;
     wire [6:0]  x_pct, y_pct;
     wire [3:0]  x_hun, x_ten, x_one, y_hun, y_ten, y_one;
+    wire        x_fwd_s, x_rev_s, y_fwd_s, y_rev_s;
+    wire [10:0] x_cmp_s, y_cmp_s;
+    wire        x_eff, y_eff;
     wire        x_fwd_l, x_rev_l, y_fwd_l, y_rev_l;
     wire [10:0] x_cmp_l, y_cmp_l;
 
-    wire        ex_moved, ey_moved;
+    wire        ex_moved, ex_skip, ey_moved, ey_skip;
     wire        ex_lp, ex_ln, ey_lp, ey_ln;
     wire        ex_neg, ey_neg;
     wire [6:0]  ex_pct, ey_pct;
     wire [3:0]  ex_hun, ex_ten, ex_one, ey_hun, ey_ten, ey_one;
+    wire [3:0]  x_sth, x_shu, x_ste, x_son;
+    wire [3:0]  y_sth, y_shu, y_ste, y_son;
 
     wire [10:0] pwm_cnt;
     wire        pwm_en;
@@ -72,6 +78,8 @@ module top (
     reg         sx_neg, sy_neg;
     reg  [3:0]  sx_hun, sx_ten, sx_one, sy_hun, sy_ten, sy_one;
     reg         sx_moved, sy_moved, sx_lock, sy_lock;
+    reg  [3:0]  sx_sth, sx_shu, sx_ste, sx_son;
+    reg  [3:0]  sy_sth, sy_shu, sy_ste, sy_son;
     reg         lx_fwd, lx_rev, ly_fwd, ly_rev;
     reg  [10:0] lx_cmp, ly_cmp;
 
@@ -88,6 +96,8 @@ module top (
         sy_hun = 4'd0; sy_ten = 4'd0; sy_one = 4'd0;
         sx_moved = 1'b0; sy_moved = 1'b0;
         sx_lock = 1'b0; sy_lock = 1'b0;
+        sx_sth = 4'd0; sx_shu = 4'd0; sx_ste = 4'd0; sx_son = 4'd0;
+        sy_sth = 4'd0; sy_shu = 4'd0; sy_ste = 4'd0; sy_son = 4'd0;
         lx_fwd = 1'b0; lx_rev = 1'b0;
         ly_fwd = 1'b0; ly_rev = 1'b0;
         lx_cmp = 11'd0; ly_cmp = 11'd0;
@@ -215,12 +225,13 @@ module top (
     enc_pos u_enc_x (
         .clk     (clk),
         .sample  (sample_done),
-        .raw_a   (ch4),
-        .raw_b   (ch5),
+        .raw_a   (ch6),
+        .raw_b   (ch7),
         .cmd_fwd (x_fwd),
         .cmd_rev (x_rev),
-        .cmd_on  (x_cmp != 11'd0),
+        .cmd_on  (x_eff),
         .moved   (ex_moved),
+        .skip    (ex_skip),
         .lock_p  (ex_lp),
         .lock_n  (ex_ln),
         .pos_neg (ex_neg),
@@ -233,12 +244,13 @@ module top (
     enc_pos u_enc_y (
         .clk     (clk),
         .sample  (sample_done),
-        .raw_a   (ch6),
-        .raw_b   (ch7),
+        .raw_a   (ch4),
+        .raw_b   (ch5),
         .cmd_fwd (y_fwd),
         .cmd_rev (y_rev),
-        .cmd_on  (y_cmp != 11'd0),
+        .cmd_on  (y_eff),
         .moved   (ey_moved),
+        .skip    (ey_skip),
         .lock_p  (ey_lp),
         .lock_n  (ey_ln),
         .pos_neg (ey_neg),
@@ -248,10 +260,50 @@ module top (
         .one     (ey_one)
     );
 
+    spd_ctl #(.MAX_CMP(270), .SAT(180)) u_spd_x (
+        .clk     (clk),
+        .sample  (sample_done),
+        .pot_fwd (x_fwd),
+        .pot_rev (x_rev),
+        .pot_pct (x_pct),
+        .moved   (ex_moved),
+        .skip    (ex_skip),
+        .lock_p  (ex_lp),
+        .lock_n  (ex_ln),
+        .fwd     (x_fwd_s),
+        .rev     (x_rev_s),
+        .cmp     (x_cmp_s),
+        .effort  (x_eff),
+        .spd_th  (x_sth),
+        .spd_hu  (x_shu),
+        .spd_te  (x_ste),
+        .spd_on  (x_son)
+    );
+
+    spd_ctl #(.MAX_CMP(540), .SAT(360)) u_spd_y (
+        .clk     (clk),
+        .sample  (sample_done),
+        .pot_fwd (y_fwd),
+        .pot_rev (y_rev),
+        .pot_pct (y_pct),
+        .moved   (ey_moved),
+        .skip    (ey_skip),
+        .lock_p  (ey_lp),
+        .lock_n  (ey_ln),
+        .fwd     (y_fwd_s),
+        .rev     (y_rev_s),
+        .cmp     (y_cmp_s),
+        .effort  (y_eff),
+        .spd_th  (y_sth),
+        .spd_hu  (y_shu),
+        .spd_te  (y_ste),
+        .spd_on  (y_son)
+    );
+
     pwr_lim u_lim_x (
-        .fwd_i   (x_fwd),
-        .rev_i   (x_rev),
-        .cmp_i   (x_cmp),
+        .fwd_i   (x_fwd_s),
+        .rev_i   (x_rev_s),
+        .cmp_i   (x_cmp_s),
         .pct     (ex_pct),
         .pos_neg (ex_neg),
         .lock_p  (ex_lp),
@@ -262,9 +314,9 @@ module top (
     );
 
     pwr_lim u_lim_y (
-        .fwd_i   (y_fwd),
-        .rev_i   (y_rev),
-        .cmp_i   (y_cmp),
+        .fwd_i   (y_fwd_s),
+        .rev_i   (y_rev_s),
+        .cmp_i   (y_cmp_s),
         .pct     (ey_pct),
         .pos_neg (ey_neg),
         .lock_p  (ey_lp),
@@ -333,6 +385,14 @@ module top (
             sy_one   <= ey_one;
             sy_moved <= ey_moved;
             sy_lock  <= ey_lp | ey_ln;
+            sx_sth   <= x_sth;
+            sx_shu   <= x_shu;
+            sx_ste   <= x_ste;
+            sx_son   <= x_son;
+            sy_sth   <= y_sth;
+            sy_shu   <= y_shu;
+            sy_ste   <= y_ste;
+            sy_son   <= y_son;
         end
     end
 
@@ -355,13 +415,57 @@ module top (
         .x_one      (sx_one),
         .x_moved    (sx_moved),
         .x_lock     (sx_lock),
+        .x_sth      (sx_sth),
+        .x_shu      (sx_shu),
+        .x_ste      (sx_ste),
+        .x_son      (sx_son),
         .y_neg      (sy_neg),
         .y_hun      (sy_hun),
         .y_ten      (sy_ten),
         .y_one      (sy_one),
         .y_moved    (sy_moved),
         .y_lock     (sy_lock),
+        .y_sth      (sy_sth),
+        .y_shu      (sy_shu),
+        .y_ste      (sy_ste),
+        .y_son      (sy_son),
         .pixel      (pixel)
+    );
+
+    dbg_uart u_dbg (
+        .clk     (clk),
+        .paused  (paused),
+        .x_fwd   (x_fwd),
+        .x_rev   (x_rev),
+        .y_fwd   (y_fwd),
+        .y_rev   (y_rev),
+        .x_pct   (x_pct),
+        .y_pct   (y_pct),
+        .x_cmp   (x_cmp_s),
+        .y_cmp   (y_cmp_s),
+        .x_eff   (x_eff),
+        .y_eff   (y_eff),
+        .x_moved (ex_moved),
+        .y_moved (ey_moved),
+        .x_skip  (ex_skip),
+        .y_skip  (ey_skip),
+        .x_lp    (ex_lp),
+        .x_ln    (ex_ln),
+        .y_lp    (ey_lp),
+        .y_ln    (ey_ln),
+        .x_sth   (x_sth),
+        .x_shu   (x_shu),
+        .x_ste   (x_ste),
+        .x_son   (x_son),
+        .y_sth   (y_sth),
+        .y_shu   (y_shu),
+        .y_ste   (y_ste),
+        .y_son   (y_son),
+        .x_a     (ch6),
+        .x_b     (ch7),
+        .y_a     (ch4),
+        .y_b     (ch5),
+        .tx      (uart_tx)
     );
 
     lcd_master u_lcd (
