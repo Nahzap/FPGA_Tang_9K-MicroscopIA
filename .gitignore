@@ -1,8 +1,9 @@
 # Local ignores — toolchain, notes, build junk
 
-# Planning markdown (local only; never publish)
-Docs/
-docs/
+# Planning markdown at the repo root stays local.
+# The control record lives in Motor_CTRL_v4.0/docs and is published.
+/Docs/
+/docs/
 
 # OSS CAD Suite and vendor blobs
 oss-cad-suite/
@@ -14,6 +15,7 @@ zadig*.exe
 # Synthesis / sim intermediates
 *.json
 *.vvp
+sim.stamp
 *.vcd
 *.lxt
 *.lxt2
